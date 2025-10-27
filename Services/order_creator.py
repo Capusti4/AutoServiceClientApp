@@ -1,3 +1,5 @@
+import json
+
 orders = {
     1: "Покраска авто",
     2: "Замена шин",
@@ -7,7 +9,7 @@ orders = {
     6: "Ремонт внутренней детали",
 }
 
-def create_order_data(user_info):
+def create_order_data():
     print("Выберите какой тип заказа вам нужен")
     for key, value in orders.items():
         print(f"{key}: {value}")
@@ -20,9 +22,11 @@ def create_order_data(user_info):
         order_type = None
     print("Введите комментарий для работника")
     comment = input()
+    with open("Data\\session.json", "r") as f:
+        user_session_info = json.load(f)
     return {
         "orderTypeId": type_id,
         "orderType": order_type,
-        "userInfo": user_info,
+        "userSessionInfo": user_session_info,
         "comment": comment,
     }

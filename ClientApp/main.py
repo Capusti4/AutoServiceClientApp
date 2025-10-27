@@ -34,7 +34,7 @@ def main_menu():
     print("3. Закрыть приложение")
     choice = int(input())
     if choice == 1:
-        data = create_order_data(user_info)
+        data = create_order_data()
         response = requests.post(url="http://localhost:8080/client/createOrder", json=data)
         print(response.text)
         main_menu()

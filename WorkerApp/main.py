@@ -50,21 +50,12 @@ def main_menu():
             print("Заказы:")
             print("---")
             for order in orders:
-                print(f"Заказчик: {order['clientUsername']}")
-                print(f"Тип заказа: {order['type']}")
-                print(f"Комментарий клиента: {order['comment']}")
-                print("---")
-            print("Хотите связаться с клиентом по поводу заказа?")
-            print("1. Да")
-            print("2. Нет")
-            choice = int(input())
-            if choice == 1:
-                print(f"Введите номер заказа (1-{len(orders)})")
-                choice = int(input()) - 1
-                client_info = orders[choice]
-                print(f"Имя: {client_info['clientFirstName']}")
-                print(f"Фамилия: {client_info['clientLastName']}")
-                print(f"Номер телефона: {client_info['clientPhoneNum']}")
+                print(f"Тип заказа: {order["type"]}")
+                print(f"Комментарий: {order["comment"]}")
+                print()
+                print(f"Имя заказчика: {order["customerFirstName"]}")
+                print(f"Фамилия заказчика: {order["customerLastName"]}")
+                print(f"Номер телефона заказчика: {order["customerPhoneNum"]}")
                 print("---")
         main_menu()
     elif choice == 2:
