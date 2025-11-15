@@ -1,9 +1,12 @@
 import json
+from itertools import product
 
 import requests
 
 from Services.log_in import log_in
+from Services.orders_printer import print_order
 from Services.registration import register
+from Services.requests_maker import get_response_with_user_data
 from Services.response_parser import get_user_info
 from Services.sessions import delete_session, check_session
 
@@ -40,14 +43,8 @@ def main_menu():
             print("4. Назад")
             match int(input()):
                 case 1:
-                    url = "http://localhost:8080/worker/getOrdersList"
-                    with open("Data\\session.json", "r") as f:
-                        session_token = json.load(f)["sessionToken"]
-                    data = {
-                        'username': user_info['username'],
-                        'sessionToken': session_token
-                    }
-                    response = requests.post(url=url, json=data)
+                    url = "http://localhost:8080/worker/getNewOrdersList"
+                    response = get_response_with_user_data(url, user_info["username"])
                     orders = response.json()["orders"]
                     if not orders:
                         print("Пока заказов нет")
@@ -55,14 +52,7 @@ def main_menu():
                         print("Заказы:")
                         print("---")
                         for order in orders:
-                            print(f"ID заказа: {order["_id"]["$oid"]}")
-                            print(f"Тип заказа: {order["type"]}")
-                            print(f"Комментарий: {order["comment"]}")
-                            print()
-                            print(f"Имя заказчика: {order["customerFirstName"]}")
-                            print(f"Фамилия заказчика: {order["customerLastName"]}")
-                            print(f"Номер телефона заказчика: {order["customerPhoneNum"]}")
-                            print("---")
+                            print_order(order)
                         print("Хотите взять какой-то из заказов?")
                         print("1. Да")
                         print("2. Нет")
@@ -73,11 +63,19 @@ def main_menu():
                                 session_json = json.load(f)
                             session_json["orderId"] = order_id
                             response = requests.post("http://localhost:8080/worker/startOrder", json=session_json)
-                            print(response.text)
-                            print(response.status_code)
+                            if response.status_code != 200:
+                                print(response.text)
                     main_menu()
                 case 2:
-                    print()
+                    url = "http://localhost:8080/worker/getActiveOrdersList"
+                    response = get_response_with_user_data(url, user_info["username"])
+                    orders = response.json()
+                    if response.status_code != 200 or not orders:
+                        print(response.text)
+                        main_menu()
+                        return
+                    for order in orders:
+                        print_order(order)
                 case 3:
                     print()
             main_menu()
