@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/AutoServiceClientApp.iml" filepath="$PROJECT_DIR$/.idea/AutoServiceClientApp.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/AutoServiceApp.iml" filepath="$PROJECT_DIR$/.idea/AutoServiceApp.iml" />
     </modules>
   </component>
 </project>

@@ -12,7 +12,6 @@ def check_session(name):
         user_info = response.json()["userData"]
     else:
         user_info = None
-        print(response.text)
     return user_info
 
 def delete_session(name):
