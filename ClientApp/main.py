@@ -9,6 +9,19 @@ from Services.sessions import delete_session, check_session
 user_info: dict
 
 
+def main():
+    global user_info
+    print("Добрый день")
+    try:
+        user_info = check_session("client")
+        if not user_info:
+            start_menu()
+        else:
+            main_menu()
+    except FileNotFoundError:
+        start_menu()
+
+
 def start_menu():
     global user_info
     print("1. Регистрация")
@@ -39,21 +52,18 @@ def main_menu():
         print(response.text)
         main_menu()
     elif choice == 2:
-        response = delete_session("client")
-        if response.status_code == 200:
-            start_menu()
-        else:
-            print(response.text)
+        exit_from_account()
     elif choice == 3:
         exit()
 
 
-print("Добрый день")
-try:
-    user_info = check_session("client")
-    if user_info:
-        main_menu()
-    else:
+def exit_from_account():
+    response = delete_session("client")
+    if response.status_code == 200:
         start_menu()
-except FileNotFoundError:
-    start_menu()
+    else:
+        print(response.text)
+
+
+if __name__ == "__main__":
+    main()
