@@ -1,8 +1,8 @@
 import requests
+from time import sleep
 
 from Services.log_in import log_in
-from Services.notification_opener import open_notification
-from Services.notification_printer import print_notifications
+from Services.notifications import notifications_menu
 from Services.order_creator import create_order_data
 from Services.registration import register
 from Services.requests_maker import get_response_with_user_data
@@ -23,6 +23,10 @@ def main():
             main_menu()
     except FileNotFoundError:
         start_menu()
+    except ConnectionError:
+        print("Ошибка соединения, пробуем подключится еще раз, если ошибка повторяется - проверьте подключение к интернету")
+        sleep(3)
+        main()
 
 
 def start_menu():
@@ -66,34 +70,12 @@ def main_menu():
         print(response.text)
         main_menu()
     elif choice == 2:
-        notifications_menu()
+        notifications_menu(user_info, "client")
         main_menu()
     elif choice == 3:
         exit_from_account()
     elif choice == 4:
         exit()
-
-
-def notifications_menu():
-    url = "http://localhost:8080/client/getNotifications"
-    response = get_response_with_user_data(url, user_info["username"])
-    if response.status_code != 200:
-        print(response.text)
-    else:
-        notifications = response.json()
-        show_notifications(notifications)
-
-
-def show_notifications(notifications):
-    if not notifications:
-        print("Уведомлений пока нет")
-    else:
-        print_notifications(notifications)
-        print("Если хотите открыть уведомление - введите его номер")
-        print("0 - чтобы выйти")
-        choice = int(input())
-        if choice != 0:
-            open_notification(notifications[choice - 1], user_info["username"])
 
 
 def exit_from_account():
