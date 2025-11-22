@@ -146,13 +146,13 @@ def take_order(orders):
     if input() != "1": return
 
     print(f"Введите номер заказа (1-{len(orders)})")
-    order_id = orders[int(input()) - 1]["_id"]
+    order_id = orders[int(input()) - 1]["_id"]["$oid"]
     with open("Data\\session.json", "r") as f:
         session_json = json.load(f)
     session_json["orderId"] = order_id
     response = requests.post("http://localhost:8080/worker/startOrder", json=session_json)
     if response.status_code == 200:
-        print(f"Заказ {order_id["$oid"]} успешно взят")
+        print(f"Заказ {order_id} успешно взят")
     else:
         print(response.text)
 

@@ -16,21 +16,10 @@ def print_order(order, app):
     print(f"Тип заказа: {order["type"]}")
     print(f"Комментарий: {order["comment"]}")
     if app == "worker":
-        if order["hasWorkerFeedback"]:
-            word = "есть"
-        else:
-            word = "нет"
-        print(f"Отзыв: {word}")
         print()
         print(f"Имя заказчика: {order["customerFirstName"]}")
         print(f"Фамилия заказчика: {order["customerLastName"]}")
         print(f"Номер телефона заказчика: {order["customerPhoneNum"]}")
-    else:
-        if order["hasCustomerFeedback"]:
-            word = "есть"
-        else:
-            word = "нет"
-        print(f"Отзыв: {word}")
 
 
 def create_order_data():
