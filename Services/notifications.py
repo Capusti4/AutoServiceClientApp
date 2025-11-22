@@ -1,9 +1,7 @@
 import json
-
 import requests
 
-from Services.feedbacks import ask_about_feedback
-from Services.requests_maker import get_response_with_user_data
+from Services.responses import get_response_with_user_data
 
 
 def notifications_menu(user_info, app):
@@ -54,8 +52,6 @@ def print_notifications(notifications):
 def open_notification(notification, user_info, app):
     print(notification["text"])
     read_notification(notification, user_info["username"], app)
-    if notification["typeId"] == (3 or 5) and not notification["isRead"]:
-        ask_about_feedback(notification, user_info, app)
 
 
 def read_notification(notification, username, app):
