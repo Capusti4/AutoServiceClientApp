@@ -2,7 +2,7 @@ import json
 import requests
 from time import sleep
 
-from Services.feedbacks import send_feedback, show_feedbacks
+from Services.feedbacks import send_feedback, feedbacks_menu
 from Services.log_in import log_in
 from Services.notifications import notifications_menu
 from Services.orders import print_order
@@ -79,7 +79,7 @@ def print_main_menu(amount):
         print(f"2. Посмотреть уведомления ({amount})")
     else:
         print(f"2. Посмотреть уведомления")
-    print("3. Посмотреть свои отзывы")
+    print("3. Открыть меню отзывов")
     print("4. Выйти из аккаунта")
     print("5. Закрыть приложение")
 
@@ -90,10 +90,10 @@ def match_main_menu_choice():
             orders_menu()
             main_menu()
         case 2:
-            notifications_menu(user_info, "worker")
+            notifications_menu(user_info["username"], "worker")
             main_menu()
         case 3:
-            show_feedbacks(user_info["username"], "worker")
+            feedbacks_menu(user_info["username"], "worker")
             main_menu()
         case 4:
             exit_from_account()
@@ -120,8 +120,6 @@ def match_orders_menu_choice(choice):
         case 3:
             show_completed_orders()
             orders_menu()
-        case 4:
-            main_menu()
 
 
 def show_new_orders():

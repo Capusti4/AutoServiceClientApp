@@ -34,19 +34,43 @@ def send_feedback(order, user_info, app):
     print(response.text)
 
 
-def show_feedbacks(username, app):
-    url = f"http://localhost:8080/{app}/getFeedbacks"
+def feedbacks_menu(username, app):
+    print("1. Посмотреть отзывы написанные Вами")
+    print("2. Посмотреть отзывы написанные про Вас")
+    print("3. Назад")
+    choice = int(input())
+    if choice == 3:
+        return
+    elif choice == 1:
+        url = f"http://localhost:8080/{app}/getFeedbacksByUser"
+    else:
+        url = f"http://localhost:8080/{app}/getFeedbacksForUser"
+    show_feedbacks(username, url)
+    feedbacks_menu(username, app)
+
+
+def show_feedbacks(username, url):
+    feedbacks = get_feedbacks(url, username)
+    if feedbacks is not None:
+        print_feedbacks(feedbacks)
+
+
+def get_feedbacks(url, username):
     response = get_response_with_user_data(url, username)
     if response.status_code == 200:
-        feedbacks = response.json()["feedbacks"]
-        if feedbacks:
-            print("Ваши отзывы:")
-            for feedback in feedbacks:
-                print("---")
-                print(f"Оценка: {feedback["rating"]}")
-                print(f"Комментарий: {feedback["comment"]}")
-            print("---")
-        else:
-            print("Отзывов нет")
+        return response.json()["feedbacks"]
     else:
         print(response.text)
+        return None
+
+
+def print_feedbacks(feedbacks):
+    if feedbacks:
+        print("Ваши отзывы:")
+        for feedback in feedbacks:
+            print("---")
+            print(f"Оценка: {feedback["rating"]}")
+            print(f"Комментарий: {feedback["comment"]}")
+        print("---")
+    else:
+        print("Отзывов нет")

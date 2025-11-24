@@ -2,7 +2,7 @@ import requests
 from time import sleep
 from requests.exceptions import ConnectionError, Timeout
 
-from Services.feedbacks import send_feedback, show_feedbacks
+from Services.feedbacks import send_feedback, feedbacks_menu
 from Services.log_in import log_in
 from Services.notifications import notifications_menu
 from Services.orders import create_order_data, print_order
@@ -76,7 +76,7 @@ def print_main_menu(amount):
         print(f"3. Посмотреть уведомления ({amount})")
     else:
         print(f"3. Посмотреть уведомления")
-    print("4. Посмотреть свои отзывы")
+    print("4. Открыть меню отзывов")
     print("5. Выйти из аккаунта")
     print("6. Закрыть приложение")
 
@@ -89,10 +89,10 @@ def match_main_menu_choice(choice):
         show_completed_orders()
         main_menu()
     elif choice == 3:
-        notifications_menu(user_info, "client")
+        notifications_menu(user_info["username"], "client")
         main_menu()
     elif choice == 4:
-        show_feedbacks(user_info["username"], "client")
+        feedbacks_menu(user_info["username"], "client")
         main_menu()
     elif choice == 5:
         exit_from_account()

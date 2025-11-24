@@ -4,27 +4,32 @@ import requests
 from Services.responses import get_response_with_user_data
 
 
-def notifications_menu(user_info, app):
+def notifications_menu(username, app):
     url = f"http://localhost:8080/{app}/getNotifications"
-    response = get_response_with_user_data(url, user_info["username"])
+    response = get_response_with_user_data(url, username)
     if response.status_code != 200:
         print(response.text)
     else:
         notifications = response.json()
-        show_notifications(notifications, user_info, app)
+        show_notifications(notifications, username, app)
 
 
-def show_notifications(notifications, user_info, app):
+def show_notifications(notifications, username, app):
     if not notifications:
         print("Уведомлений пока нет")
     else:
         print_notifications(notifications)
         print("Если хотите открыть уведомление - введите его номер")
+        print("Если хотите прочитать все - введите -1")
         print("0 - чтобы выйти")
         choice = int(input()) - 1
-        if choice != -1:
+        if choice == -2:
+            url = f"http://localhost:8080/{app}/readAllNotifications"
+            response = get_response_with_user_data(url, username)
+            print(response.text)
+        elif choice != -1:
             notification = notifications[choice]
-            open_notification(notification, user_info, app)
+            open_notification(notification, username, app)
 
 
 def print_notifications(notifications):
@@ -49,9 +54,9 @@ def print_notifications(notifications):
         print("---")
 
 
-def open_notification(notification, user_info, app):
+def open_notification(notification, username, app):
     print(notification["text"])
-    read_notification(notification, user_info["username"], app)
+    read_notification(notification, username, app)
 
 
 def read_notification(notification, username, app):
