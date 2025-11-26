@@ -1,231 +1,380 @@
-import json
 import requests
-from time import sleep
+from PySide6.QtWidgets import (
+    QApplication, QWidget, QVBoxLayout, QFormLayout,
+    QLineEdit, QPushButton, QLabel, QMessageBox, QStackedWidget, QListWidget, QListWidgetItem
+)
+from PySide6.QtGui import QFont
+from PySide6.QtCore import Qt
+import sys
 
-from Services.feedbacks import send_feedback, feedbacks_menu
-from Services.log_in import log_in
-from Services.notifications import notifications_menu
-from Services.orders import print_order
-from Services.registration import register
 from Services.responses import get_user_info, get_response_with_user_data
-from Services.sessions import delete_session, check_session
+from Services.sessions import check_session
 
-user_info: dict
+user_info = check_session("worker")
 
 
-def main():
-    global user_info
-    print("Сапчик")
-    try:
-        user_info = check_session("worker")
-        if not user_info:
-            start_menu()
+class LoginPage(QWidget):
+    def __init__(self, stack):
+        super().__init__()
+        self.stack = stack
+
+        self.setWindowTitle("Вход")
+        self.setFixedSize(360, 420)
+
+        # --- Основной контейнер ---
+        layout = QVBoxLayout(self)
+        layout.setAlignment(Qt.AlignCenter)
+
+        # --- Заголовок ---
+        title = QLabel("Вход")
+        title.setFont(QFont("Arial", 22, QFont.Bold))
+        title.setAlignment(Qt.AlignCenter)
+        layout.addWidget(title)
+
+        # --- Форма ---
+        form_layout = QFormLayout()
+        form_layout.setLabelAlignment(Qt.AlignLeft)
+
+        self.username_text_box = QLineEdit()
+        self.username_text_box.setPlaceholderText("Логин")
+
+        self.password_text_box = QLineEdit()
+        self.password_text_box.setPlaceholderText("Пароль")
+        self.password_text_box.setEchoMode(QLineEdit.Password)
+
+        form_layout.addRow("Логин:", self.username_text_box)
+        form_layout.addRow("Пароль:", self.password_text_box)
+
+        layout.addLayout(form_layout)
+
+        # --- Кнопка входа ---
+        self.login_btn = QPushButton("Войти")
+        self.login_btn.setFixedHeight(45)
+        self.login_btn.clicked.connect(self.log_in)
+
+        # --- Кнопка регистрации ---
+        self.register_btn = QPushButton("Зарегистрироваться")
+        self.register_btn.setFixedHeight(45)
+        self.register_btn.clicked.connect(self.open_registration_page)
+
+        layout.addWidget(self.login_btn)
+        layout.addWidget(self.register_btn)
+
+        # --- Стиль ---
+        self.setStyleSheet("""
+            QWidget {
+                background-color: #F7FAFF;
+            }
+            QLabel {
+                color: #1A3E6E;
+            }
+            /* Тёмный текст внутри полей ввода */
+            QLineEdit {
+                color: #000000;
+                padding: 10px;
+                border-radius: 8px;
+                border: 2px solid #C7D8F7;
+                background: #ffffff;
+            }
+            /* Светлый плейсхолдер (смягчает визуал) */
+            QLineEdit[placeholderText]:!focus { color: #9fb4e6; }
+            QLineEdit:focus {
+                border: 2px solid #6BA6FF;
+            }
+            QPushButton {
+                background-color: #6BA6FF;
+                color: white;
+                border: none;
+                border-radius: 10px;
+                font-size: 16px;
+            }
+            QPushButton:hover {
+                background-color: #5A94EA;
+            }
+            QPushButton:pressed {
+                background-color: #4C82D1;
+            }
+        """)
+
+    def log_in(self):
+        global user_info
+        username = self.username_text_box.text().lower()
+        password = self.password_text_box.text()
+        url = "http://localhost:8080/worker/logIn"
+        json = {"username": username, "password": password}
+        response = requests.post(url, json=json)
+        if response.status_code != 200:
+            QMessageBox.information(self, "Вход", response.text)
         else:
-            main_menu()
-    except FileNotFoundError:
-        start_menu()
-    except requests.ConnectionError or requests.Timeout:
-        try_restart_app()
-    except KeyboardInterrupt:
-        exit()
-    except Exception as e:
-        unknown_exception(e)
+            user_info = get_user_info(response)
+            self.stack.setCurrentWidget(main_page)
+
+    def open_registration_page(self):
+        self.stack.setCurrentWidget(registration_page)
 
 
-def try_restart_app():
-    print(
-        "Ошибка соединения, пробуем подключится еще раз, "
-        "если ошибка повторяется - проверьте подключение к интернету или обратитесь в поддержку"
-    )
-    sleep(3)
-    main()
+class RegistrationPage(QWidget):
+    def __init__(self, stack):
+        super().__init__()
+
+        self.stack = stack
+        self.setWindowTitle("Регистрация")
+        self.setFixedSize(360, 420)
+
+        # --- Основной контейнер ---
+        layout = QVBoxLayout(self)
+        layout.setAlignment(Qt.AlignCenter)
+
+        # --- Заголовок ---
+        title = QLabel("Регистрация")
+        title.setFont(QFont("Arial", 22, QFont.Bold))
+        title.setAlignment(Qt.AlignCenter)
+        layout.addWidget(title)
+
+        # --- Форма ---
+        form_layout = QFormLayout()
+        form_layout.setLabelAlignment(Qt.AlignLeft)
+
+        self.username_text_box = QLineEdit()
+        self.username_text_box.setPlaceholderText("Логин")
+
+        self.password_text_box = QLineEdit()
+        self.password_text_box.setPlaceholderText("Пароль")
+        self.password_text_box.setEchoMode(QLineEdit.Password)
+
+        self.firstname_text_box = QLineEdit()
+        self.firstname_text_box.setPlaceholderText("Имя")
+
+        self.lastname_text_box = QLineEdit()
+        self.lastname_text_box.setPlaceholderText("Фамилия")
+
+        self.phone_number_text_box = QLineEdit()
+        self.phone_number_text_box.setPlaceholderText("Номер телефона")
+
+        form_layout.addRow("Логин:", self.username_text_box)
+        form_layout.addRow("Пароль:", self.password_text_box)
+        form_layout.addRow("Имя:", self.firstname_text_box)
+        form_layout.addRow("Фамилия:", self.lastname_text_box)
+        form_layout.addRow("Номер телефона:", self.phone_number_text_box)
+
+        layout.addLayout(form_layout)
+
+        # --- Кнопка регистрации ---
+        self.register_btn = QPushButton("Зарегистрироваться")
+        self.register_btn.setFixedHeight(45)
+        self.register_btn.clicked.connect(self.register)
+
+        # --- Кнопка входа ---
+        self.login_btn = QPushButton("Войти")
+        self.login_btn.setFixedHeight(45)
+        self.login_btn.clicked.connect(self.open_log_in_page)
+
+        layout.addWidget(self.register_btn)
+        layout.addWidget(self.login_btn)
+
+        # --- Стиль ---
+        self.setStyleSheet("""
+                    QLabel {
+                        color: #1A3E6E;
+                    }
+                    /* Тёмный текст внутри полей ввода */
+                    QLineEdit {
+                        color: #000000;
+                        padding: 10px;
+                        border-radius: 8px;
+                        border: 2px solid #C7D8F7;
+                        background: #ffffff;
+                    }
+                    /* Светлый плейсхолдер (смягчает визуал) */
+                    QLineEdit[placeholderText]:!focus { color: #9fb4e6; }
+                    QLineEdit:focus {
+                        border: 2px solid #6BA6FF;
+                    }
+                    QPushButton {
+                        background-color: #6BA6FF;
+                        color: white;
+                        border: none;
+                        border-radius: 10px;
+                        font-size: 16px;
+                    }
+                    QPushButton:hover {
+                        background-color: #5A94EA;
+                    }
+                    QPushButton:pressed {
+                        background-color: #4C82D1;
+                    }
+                """)
+
+    def register(self):
+        global user_info
+        username = self.username_text_box.text().lower()
+        password = self.password_text_box.text()
+        firstname = self.firstname_text_box.text().lower()
+        lastname = self.lastname_text_box.text().lower()
+        phone_number = self.phone_number_text_box.text()
+        url = "http://localhost:8080/worker/register"
+        json = {
+            "username": username,
+            "password": password,
+            "firstName": firstname,
+            "lastName": lastname,
+            "phoneNum": phone_number
+        }
+        response = requests.post(url, json=json)
+        if response.status_code != 201:
+            QMessageBox.information(self, "Регистрация", response.text)
+        else:
+            user_info = get_user_info(response)
+            self.stack.setCurrentWidget(main_page)
+
+    def open_log_in_page(self):
+        self.stack.setCurrentWidget(log_in_page)
 
 
-def unknown_exception(e):
-    print(f"Неизвестная ошибка {e}")
-    print("Сообщите о ней в поддержку")
-    exit()
+class MainPage(QWidget):
+    def __init__(self, stack):
+        super().__init__()
+        self.stack = stack
+
+        self.setWindowTitle("Главное меню")
+        self.setFixedSize(360, 420)
+
+        layout = QVBoxLayout()
+        layout.setAlignment(Qt.AlignCenter)
+        layout.setSpacing(20)
+
+        # Заголовок
+        title = QLabel("Главное меню")
+        title.setFont(QFont("Arial", 22, QFont.Bold))
+        title.setAlignment(Qt.AlignCenter)
+        layout.addWidget(title)
+
+        # Кнопки меню
+        self.orders_btn = QPushButton("Посмотреть заказы")
+        self.notifications_btn = QPushButton("Посмотреть уведомления")
+        self.notifications_btn.clicked.connect(self.open_notifications_menu)
+        self.reviews_btn = QPushButton("Открыть меню отзывов")
+        self.logout_btn = QPushButton("Выйти из аккаунта")
+
+        for btn in [self.orders_btn, self.notifications_btn, self.reviews_btn, self.logout_btn]:
+            btn.setFixedHeight(45)
+            layout.addWidget(btn)
+
+        self.setLayout(layout)
+
+        # Стиль
+        self.setStyleSheet("""
+            QWidget {
+                background-color: #F7FAFF;
+            }
+            QLabel {
+                color: #1A3E6E;
+            }
+            QPushButton {
+                background-color: #6BA6FF;
+                color: white;
+                border: none;
+                border-radius: 10px;
+                font-size: 16px;
+            }
+            QPushButton:hover {
+                background-color: #5A94EA;
+            }
+            QPushButton:pressed {
+                background-color: #4C82D1;
+            }
+        """)
+
+    def open_notifications_menu(self):
+        self.stack.setCurrentWidget(notifications_page)
 
 
-def start_menu():
-    global user_info
-    print("1. Регистрация")
-    print("2. Вход")
-    choice = int(input())
-    if choice == 1:
-        response = register("worker")
-    elif choice == 2:
-        response = log_in("worker")
-    else:
-        exit()
-    user_info = get_user_info(response)
-    if user_info:
-        main_menu()
+class NotificationsPage(QWidget):
+    def __init__(self, stack):
+        super().__init__()
+        self.stack = stack
 
+        self.setWindowTitle("Уведомления")
+        self.setFixedSize(600, 400)
+        layout = QVBoxLayout(self)
 
-def main_menu():
-    response = get_response_with_user_data("http://localhost:8080/worker/getNotificationsAmount", user_info["username"])
-    try:
-        print_main_menu(response.json())
-        match_main_menu_choice()
-    except Exception as e:
-        unknown_exception(e)
+        list_widget = QListWidget()
 
+        url = "http://localhost:8080/worker/getNotifications"
+        response = get_response_with_user_data(url, user_info["username"])
+        if response.status_code != 200:
+            QMessageBox.information(self, "Ошибка", response.text)
+            self.stack.setCurrentWidget(log_in_page)
+            return
+        else:
+            notifications = response.json()
 
-def print_main_menu(amount):
-    print("Че дел?")
-    print("1. Посмотреть заказы")
-    if amount > 0:
-        print(f"2. Посмотреть уведомления ({amount})")
-    else:
-        print(f"2. Посмотреть уведомления")
-    print("3. Открыть меню отзывов")
-    print("4. Выйти из аккаунта")
-    print("5. Закрыть приложение")
+        for notification in notifications:
+            item = QListWidgetItem()
+            widget = QWidget()
+            vbox = QVBoxLayout()
+            vbox.setSpacing(2)
+            type_id = notification["typeId"]
+            match type_id:
+                case 1:
+                    text = "Важное уведомление"
+                case 2:
+                    text = "Ваш заказ взят в работу"
+                case 3:
+                    text = "Ваш заказ завершен"
+                case 4:
+                    text = "Вам оставили отзыв"
+                case 5:
+                    text = "Вы завершили заказ, оставьте отзыв о клиенте"
 
+            vbox.addWidget(QPushButton(text))
 
-def match_main_menu_choice():
-    match int(input()):
-        case 1:
-            orders_menu()
-            main_menu()
-        case 2:
-            notifications_menu(user_info["username"], "worker")
-            main_menu()
-        case 3:
-            feedbacks_menu(user_info["username"], "worker")
-            main_menu()
-        case 4:
-            exit_from_account()
-        case 5:
-            exit()
+            widget.setLayout(vbox)
+            item.setSizeHint(widget.sizeHint())
+            list_widget.addItem(item)
+            list_widget.setItemWidget(item, widget)
 
+        layout.addWidget(list_widget)
 
-def orders_menu():
-    print("1. Посмотреть новые заказы")
-    print("2. Посмотреть заказы в процессе")
-    print("3. Посмотреть завершенные заказы")
-    print("4. Назад")
-    match_orders_menu_choice(int(input()))
-
-
-def match_orders_menu_choice(choice):
-    match choice:
-        case 1:
-            show_new_orders()
-            orders_menu()
-        case 2:
-            show_active_orders()
-            orders_menu()
-        case 3:
-            show_completed_orders()
-            orders_menu()
-
-
-def show_new_orders():
-    url = "http://localhost:8080/worker/getNewOrders"
-    response = get_response_with_user_data(url, user_info["username"])
-    orders = response.json()["orders"]
-
-    if not orders:
-        print("Пока заказов нет")
-    else:
-        print("Новые заказы:")
-        print("---")
-        for order in orders:
-            print_order(order, "worker")
-        take_order(orders)
-
-
-def take_order(orders):
-    print("Хотите взять какой-то из заказов?")
-    print("1. Да")
-    print("2. Нет")
-    if input() != "1": return
-
-    print(f"Введите номер заказа (1-{len(orders)})")
-    order_id = orders[int(input()) - 1]["_id"]["$oid"]
-    with open("Data\\session.json", "r") as f:
-        session_json = json.load(f)
-    session_json["orderId"] = order_id
-    response = requests.post("http://localhost:8080/worker/startOrder", json=session_json)
-    if response.status_code == 200:
-        print(f"Заказ {order_id} успешно взят")
-    else:
-        print(response.text)
-
-
-def show_active_orders():
-    url = "http://localhost:8080/worker/getActiveOrders"
-    response = get_response_with_user_data(url, user_info["username"])
-    orders = response.json()
-    if response.status_code != 200:
-        print(response.text)
-    elif not orders:
-        print("Активных заказов нет")
-    else:
-        print_active_orders(orders)
-
-
-def print_active_orders(orders):
-    print("Ваши активные заказы:")
-    for order in orders:
-        print_order(order, "worker")
-    print(f"Если хотите завершить заказ - введите его номер (1-{len(orders)})")
-    print("Чтобы выйти, введите 0")
-    choice = int(input()) - 1
-    if choice == -1: return
-    order = orders[choice]
-    with open("Data\\session.json", "r") as f:
-        session_token = json.load(f)["sessionToken"]
-    data = {
-        'username': user_info["username"],
-        'sessionToken': session_token,
-        'orderId': order["_id"]["$oid"],
-    }
-    response = requests.post(url="http://localhost:8080/worker/completeOrder", json=data)
-    print(response.text)
-
-
-def show_completed_orders():
-    url = "http://localhost:8080/worker/getCompletedOrders"
-    response = get_response_with_user_data(url, user_info["username"])
-    orders = response.json()["orders"]
-    if not orders:
-        print("Пока заказов нет")
-    else:
-        print_completed_orders(orders)
-
-
-def print_completed_orders(orders):
-    orders_without_feedback = []
-    print("Ваши завершенные заказы:")
-    for order in orders:
-        print_order(order, "worker")
-        if not order["hasWorkerFeedback"]: orders_without_feedback.append(order)
-    print("---")
-    if orders_without_feedback:
-        print_orders_without_feedback(orders_without_feedback)
-
-
-def print_orders_without_feedback(orders_without_feedback):
-    print("У данных заказов нет отзыва:")
-    for i, order in enumerate(orders_without_feedback):
-        print(f"{i + 1}. {order["_id"]["$oid"]}")
-    print("Чтобы оставить отзыв на один из них, напишите его номер")
-    print("Чтобы выйти напишите 0")
-    choice = int(input()) - 1
-    if choice != -1:
-        send_feedback(orders_without_feedback[choice], user_info, "worker")
-
-
-def exit_from_account():
-    response = delete_session("worker")
-    if response.status_code == 200:
-        start_menu()
-    else:
-        print(response.text)
+        self.setStyleSheet("""
+                    QWidget {
+                        background-color: #F7FAFF;
+                    }
+                    QPushButton {
+                        color: #1A3E6E;
+                        background-color: #ffffff;
+                        border: 2px solid #C7D8F7;
+                        border-radius: 8px;
+                    }
+                    QPushButton:hover {
+                        background-color: #fff000;
+                    }
+                    QPushButton:pressed {
+                        background-color: #4C82D1;
+                    }
+                """)
 
 
 if __name__ == "__main__":
-    main()
+    app = QApplication(sys.argv)
+    stack = QStackedWidget()
+    stack.setStyleSheet("background-color: #F7FAFF;")
+
+    log_in_page = LoginPage(stack)
+    registration_page = RegistrationPage(stack)
+    main_page = MainPage(stack)
+    notifications_page = NotificationsPage(stack)
+
+    stack.addWidget(log_in_page)
+    stack.addWidget(registration_page)
+    stack.addWidget(main_page)
+    stack.addWidget(notifications_page)
+
+    if user_info:
+        stack.setCurrentWidget(main_page)
+    else:
+        stack.setCurrentWidget(log_in_page)
+
+    stack.resize(360, 420)
+    stack.show()
+    sys.exit(app.exec())
