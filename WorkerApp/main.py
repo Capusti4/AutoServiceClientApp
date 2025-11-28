@@ -1,183 +1,92 @@
+import json
+
 import requests
 from PySide6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QFormLayout,
-    QLineEdit, QPushButton, QLabel, QMessageBox, QStackedWidget, QListWidget, QListWidgetItem
+    QLineEdit, QPushButton, QLabel, QMessageBox, QStackedWidget, QListWidget, QListWidgetItem, QHBoxLayout, QDialog
 )
 from PySide6.QtGui import QFont
 from PySide6.QtCore import Qt
 import sys
 
 from Services.responses import get_user_info, get_response_with_user_data
-from Services.sessions import check_session
+from Services.sessions import check_session, delete_session
 
-user_info = check_session("worker")
+user = check_session("worker")
 
 
 class LoginPage(QWidget):
-    def __init__(self, stack):
+    def __init__(self):
         super().__init__()
         self.stack = stack
+        self.username_textbox = None
+        self.password_textbox = None
+        self.register_button = None
+        self.login_button = None
 
         self.setWindowTitle("Вход")
         self.setFixedSize(360, 420)
 
-        # --- Основной контейнер ---
-        layout = QVBoxLayout(self)
-        layout.setAlignment(Qt.AlignCenter)
+        self.layout = QVBoxLayout(self)
+        self.layout.setAlignment(Qt.AlignCenter)
 
-        # --- Заголовок ---
+        self.create_textboxes()
+        self.create_tittle()
+        self.create_form_layout()
+        self.create_buttons()
+        self.set_style_sheet()
+
+    def create_textboxes(self):
+        self.username_textbox = QLineEdit()
+        self.username_textbox.setPlaceholderText("Логин")
+        self.password_textbox = QLineEdit()
+        self.password_textbox.setPlaceholderText("Пароль")
+        self.password_textbox.setEchoMode(QLineEdit.EchoMode.Password)
+
+    def create_tittle(self):
         title = QLabel("Вход")
-        title.setFont(QFont("Arial", 22, QFont.Bold))
+        title.setFont(QFont("Arial", 22))
         title.setAlignment(Qt.AlignCenter)
-        layout.addWidget(title)
+        self.layout.addWidget(title)
 
-        # --- Форма ---
+    def create_form_layout(self):
         form_layout = QFormLayout()
-        form_layout.setLabelAlignment(Qt.AlignLeft)
+        form_layout.addRow("Логин:", self.username_textbox)
+        form_layout.addRow("Пароль:", self.password_textbox)
+        self.layout.addLayout(form_layout)
 
-        self.username_text_box = QLineEdit()
-        self.username_text_box.setPlaceholderText("Логин")
+    def create_buttons(self):
+        self.login_button = QPushButton("Войти")
+        self.login_button.setFixedHeight(45)
+        self.login_button.clicked.connect(self.log_in)
+        self.layout.addWidget(self.login_button)
 
-        self.password_text_box = QLineEdit()
-        self.password_text_box.setPlaceholderText("Пароль")
-        self.password_text_box.setEchoMode(QLineEdit.Password)
-
-        form_layout.addRow("Логин:", self.username_text_box)
-        form_layout.addRow("Пароль:", self.password_text_box)
-
-        layout.addLayout(form_layout)
-
-        # --- Кнопка входа ---
-        self.login_btn = QPushButton("Войти")
-        self.login_btn.setFixedHeight(45)
-        self.login_btn.clicked.connect(self.log_in)
-
-        # --- Кнопка регистрации ---
-        self.register_btn = QPushButton("Зарегистрироваться")
-        self.register_btn.setFixedHeight(45)
-        self.register_btn.clicked.connect(self.open_registration_page)
-
-        layout.addWidget(self.login_btn)
-        layout.addWidget(self.register_btn)
-
-        # --- Стиль ---
-        self.setStyleSheet("""
-            QWidget {
-                background-color: #F7FAFF;
-            }
-            QLabel {
-                color: #1A3E6E;
-            }
-            /* Тёмный текст внутри полей ввода */
-            QLineEdit {
-                color: #000000;
-                padding: 10px;
-                border-radius: 8px;
-                border: 2px solid #C7D8F7;
-                background: #ffffff;
-            }
-            /* Светлый плейсхолдер (смягчает визуал) */
-            QLineEdit[placeholderText]:!focus { color: #9fb4e6; }
-            QLineEdit:focus {
-                border: 2px solid #6BA6FF;
-            }
-            QPushButton {
-                background-color: #6BA6FF;
-                color: white;
-                border: none;
-                border-radius: 10px;
-                font-size: 16px;
-            }
-            QPushButton:hover {
-                background-color: #5A94EA;
-            }
-            QPushButton:pressed {
-                background-color: #4C82D1;
-            }
-        """)
+        self.register_button = QPushButton("Зарегистрироваться")
+        self.register_button.setFixedHeight(45)
+        self.register_button.clicked.connect(lambda: self.stack.setCurrentWidget(registration_page))
+        self.layout.addWidget(self.register_button)
 
     def log_in(self):
-        global user_info
-        username = self.username_text_box.text().lower()
-        password = self.password_text_box.text()
+        global user
+        username = self.username_textbox.text().lower()
+        password = self.password_textbox.text()
         url = "http://localhost:8080/worker/logIn"
         json = {"username": username, "password": password}
         response = requests.post(url, json=json)
         if response.status_code != 200:
             QMessageBox.information(self, "Вход", response.text)
         else:
-            user_info = get_user_info(response)
+            user = get_user_info(response)
             self.stack.setCurrentWidget(main_page)
 
-    def open_registration_page(self):
-        self.stack.setCurrentWidget(registration_page)
-
-
-class RegistrationPage(QWidget):
-    def __init__(self, stack):
-        super().__init__()
-
-        self.stack = stack
-        self.setWindowTitle("Регистрация")
-        self.setFixedSize(360, 420)
-
-        # --- Основной контейнер ---
-        layout = QVBoxLayout(self)
-        layout.setAlignment(Qt.AlignCenter)
-
-        # --- Заголовок ---
-        title = QLabel("Регистрация")
-        title.setFont(QFont("Arial", 22, QFont.Bold))
-        title.setAlignment(Qt.AlignCenter)
-        layout.addWidget(title)
-
-        # --- Форма ---
-        form_layout = QFormLayout()
-        form_layout.setLabelAlignment(Qt.AlignLeft)
-
-        self.username_text_box = QLineEdit()
-        self.username_text_box.setPlaceholderText("Логин")
-
-        self.password_text_box = QLineEdit()
-        self.password_text_box.setPlaceholderText("Пароль")
-        self.password_text_box.setEchoMode(QLineEdit.Password)
-
-        self.firstname_text_box = QLineEdit()
-        self.firstname_text_box.setPlaceholderText("Имя")
-
-        self.lastname_text_box = QLineEdit()
-        self.lastname_text_box.setPlaceholderText("Фамилия")
-
-        self.phone_number_text_box = QLineEdit()
-        self.phone_number_text_box.setPlaceholderText("Номер телефона")
-
-        form_layout.addRow("Логин:", self.username_text_box)
-        form_layout.addRow("Пароль:", self.password_text_box)
-        form_layout.addRow("Имя:", self.firstname_text_box)
-        form_layout.addRow("Фамилия:", self.lastname_text_box)
-        form_layout.addRow("Номер телефона:", self.phone_number_text_box)
-
-        layout.addLayout(form_layout)
-
-        # --- Кнопка регистрации ---
-        self.register_btn = QPushButton("Зарегистрироваться")
-        self.register_btn.setFixedHeight(45)
-        self.register_btn.clicked.connect(self.register)
-
-        # --- Кнопка входа ---
-        self.login_btn = QPushButton("Войти")
-        self.login_btn.setFixedHeight(45)
-        self.login_btn.clicked.connect(self.open_log_in_page)
-
-        layout.addWidget(self.register_btn)
-        layout.addWidget(self.login_btn)
-
-        # --- Стиль ---
+    def set_style_sheet(self):
         self.setStyleSheet("""
+                    QWidget {
+                        background-color: #F7FAFF;
+                    }
                     QLabel {
                         color: #1A3E6E;
                     }
-                    /* Тёмный текст внутри полей ввода */
                     QLineEdit {
                         color: #000000;
                         padding: 10px;
@@ -185,7 +94,6 @@ class RegistrationPage(QWidget):
                         border: 2px solid #C7D8F7;
                         background: #ffffff;
                     }
-                    /* Светлый плейсхолдер (смягчает визуал) */
                     QLineEdit[placeholderText]:!focus { color: #9fb4e6; }
                     QLineEdit:focus {
                         border: 2px solid #6BA6FF;
@@ -205,13 +113,114 @@ class RegistrationPage(QWidget):
                     }
                 """)
 
+
+class RegistrationPage(QWidget):
+    def __init__(self):
+        super().__init__()
+        self.register_button = None
+        self.login_button = None
+        self.phone_number_textbox = None
+        self.lastname_textbox = None
+        self.firstname_textbox = None
+        self.password_textbox = None
+        self.username_textbox = None
+        self.form_layout = None
+        self.stack = stack
+
+        self.setWindowTitle("Регистрация")
+        self.setFixedSize(360, 420)
+
+        self.layout = QVBoxLayout(self)
+        self.layout.setAlignment(Qt.AlignCenter)
+
+        self.create_tittle()
+        self.create_textboxes()
+        self.create_form_layout()
+        self.create_buttons()
+        self.set_style_sheet()
+
+    def create_tittle(self):
+        title = QLabel("Регистрация")
+        title.setFont(QFont("Arial", 22))
+        title.setAlignment(Qt.AlignCenter)
+        self.layout.addWidget(title)
+
+    def create_textboxes(self):
+        self.username_textbox = QLineEdit()
+        self.username_textbox.setPlaceholderText("Логин")
+
+        self.password_textbox = QLineEdit()
+        self.password_textbox.setPlaceholderText("Пароль")
+        self.password_textbox.setEchoMode(QLineEdit.EchoMode.Password)
+
+        self.firstname_textbox = QLineEdit()
+        self.firstname_textbox.setPlaceholderText("Имя")
+
+        self.lastname_textbox = QLineEdit()
+        self.lastname_textbox.setPlaceholderText("Фамилия")
+
+        self.phone_number_textbox = QLineEdit()
+        self.phone_number_textbox.setPlaceholderText("Номер телефона")
+
+    def create_form_layout(self):
+        self.form_layout = QFormLayout()
+        self.form_layout.addRow("Логин:", self.username_textbox)
+        self.form_layout.addRow("Пароль:", self.password_textbox)
+        self.form_layout.addRow("Имя:", self.firstname_textbox)
+        self.form_layout.addRow("Фамилия:", self.lastname_textbox)
+        self.form_layout.addRow("Номер телефона:", self.phone_number_textbox)
+        self.layout.addLayout(self.form_layout)
+
+    def create_buttons(self):
+        self.register_button = QPushButton("Зарегистрироваться")
+        self.register_button.setFixedHeight(45)
+        self.register_button.clicked.connect(self.register)
+
+        self.login_button = QPushButton("Войти")
+        self.login_button.setFixedHeight(45)
+        self.login_button.clicked.connect(lambda: self.stack.setCurrentWidget(log_in_page))
+
+        self.layout.addWidget(self.register_button)
+        self.layout.addWidget(self.login_button)
+
+    def set_style_sheet(self):
+        self.setStyleSheet("""
+                            QLabel {
+                                color: #1A3E6E;
+                            }
+                            QLineEdit {
+                                color: #000000;
+                                padding: 10px;
+                                border-radius: 8px;
+                                border: 2px solid #C7D8F7;
+                                background: #ffffff;
+                            }
+                            QLineEdit[placeholderText]:!focus { color: #9fb4e6; }
+                            QLineEdit:focus {
+                                border: 2px solid #6BA6FF;
+                            }
+                            QPushButton {
+                                background-color: #6BA6FF;
+                                color: white;
+                                border: none;
+                                border-radius: 10px;
+                                font-size: 16px;
+                            }
+                            QPushButton:hover {
+                                background-color: #5A94EA;
+                            }
+                            QPushButton:pressed {
+                                background-color: #4C82D1;
+                            }
+                        """)
+
     def register(self):
-        global user_info
-        username = self.username_text_box.text().lower()
-        password = self.password_text_box.text()
-        firstname = self.firstname_text_box.text().lower()
-        lastname = self.lastname_text_box.text().lower()
-        phone_number = self.phone_number_text_box.text()
+        global user
+        username = self.username_textbox.text().lower()
+        password = self.password_textbox.text()
+        firstname = self.firstname_textbox.text().lower()
+        lastname = self.lastname_textbox.text().lower()
+        phone_number = self.phone_number_textbox.text()
         url = "http://localhost:8080/worker/register"
         json = {
             "username": username,
@@ -221,87 +230,186 @@ class RegistrationPage(QWidget):
             "phoneNum": phone_number
         }
         response = requests.post(url, json=json)
+        self.check_response(response)
+
+    def check_response(self, response):
+        global user
         if response.status_code != 201:
             QMessageBox.information(self, "Регистрация", response.text)
         else:
-            user_info = get_user_info(response)
+            user = get_user_info(response)
             self.stack.setCurrentWidget(main_page)
-
-    def open_log_in_page(self):
-        self.stack.setCurrentWidget(log_in_page)
 
 
 class MainPage(QWidget):
-    def __init__(self, stack):
+    def __init__(self):
         super().__init__()
+        self.logout_button = QPushButton()
+        self.reviews_button = QPushButton()
+        self.notifications_button = QPushButton()
+        self.orders_button = QPushButton()
+        self.layout = QVBoxLayout()
         self.stack = stack
 
         self.setWindowTitle("Главное меню")
         self.setFixedSize(360, 420)
 
-        layout = QVBoxLayout()
-        layout.setAlignment(Qt.AlignCenter)
-        layout.setSpacing(20)
+        self.create_layout()
+        self.create_tittle()
+        self.create_buttons()
+        self.set_style_sheet()
 
-        # Заголовок
+    def create_layout(self):
+        self.layout.setAlignment(Qt.AlignCenter)
+        self.layout.setSpacing(20)
+        self.setLayout(self.layout)
+
+    def create_tittle(self):
         title = QLabel("Главное меню")
-        title.setFont(QFont("Arial", 22, QFont.Bold))
+        title.setFont(QFont("Arial", 22))
         title.setAlignment(Qt.AlignCenter)
-        layout.addWidget(title)
+        self.layout.addWidget(title)
 
-        # Кнопки меню
-        self.orders_btn = QPushButton("Посмотреть заказы")
-        self.notifications_btn = QPushButton("Посмотреть уведомления")
-        self.notifications_btn.clicked.connect(self.open_notifications_menu)
-        self.reviews_btn = QPushButton("Открыть меню отзывов")
-        self.logout_btn = QPushButton("Выйти из аккаунта")
+    def create_buttons(self):
+        self.orders_button.setText("Посмотреть заказы")
+        self.orders_button.clicked.connect(self.open_orders_page)
+        self.notifications_button.setText("Посмотреть уведомления")
+        self.notifications_button.clicked.connect(self.open_notifications_page)
+        self.reviews_button.setText("Открыть меню отзывов")
+        self.logout_button.setText("Выйти из аккаунта")
+        self.logout_button.clicked.connect(self.exit_from_account)
+        for button in [self.orders_button, self.notifications_button, self.reviews_button, self.logout_button]:
+            button.setFixedHeight(45)
+            self.layout.addWidget(button)
 
-        for btn in [self.orders_btn, self.notifications_btn, self.reviews_btn, self.logout_btn]:
-            btn.setFixedHeight(45)
-            layout.addWidget(btn)
+    def open_orders_page(self):
+        url = "http://localhost:8080/worker/getCompletedOrders"
+        response = get_response_with_user_data(url, user["username"])
+        orders = response.json()["orders"]
+        orders_page.update_ui(orders)
+        self.stack.setCurrentWidget(orders_page)
 
-        self.setLayout(layout)
-
-        # Стиль
+    def set_style_sheet(self):
         self.setStyleSheet("""
-            QWidget {
-                background-color: #F7FAFF;
-            }
-            QLabel {
-                color: #1A3E6E;
-            }
-            QPushButton {
-                background-color: #6BA6FF;
-                color: white;
-                border: none;
-                border-radius: 10px;
-                font-size: 16px;
-            }
-            QPushButton:hover {
-                background-color: #5A94EA;
-            }
-            QPushButton:pressed {
-                background-color: #4C82D1;
-            }
-        """)
+                    QWidget {
+                        background-color: #F7FAFF;
+                    }
+                    QLabel {
+                        color: #1A3E6E;
+                    }
+                    QPushButton {
+                        background-color: #6BA6FF;
+                        color: white;
+                        border: none;
+                        border-radius: 10px;
+                        font-size: 16px;
+                    }
+                    QPushButton:hover {
+                        background-color: #5A94EA;
+                    }
+                    QPushButton:pressed {
+                        background-color: #4C82D1;
+                    }
+                """)
 
-    def open_notifications_menu(self):
+    def open_notifications_page(self):
+        notifications_page.update_ui()
         self.stack.setCurrentWidget(notifications_page)
+
+    def exit_from_account(self):
+        response = delete_session("worker")
+        if response.status_code != 200:
+            QMessageBox.information(self, "Ошибка", response.text)
+        else:
+            QMessageBox.information(self, "Выход", response.text)
+            self.stack.setCurrentWidget(log_in_page)
 
 
 class NotificationsPage(QWidget):
-    def __init__(self, stack):
+    def __init__(self):
         super().__init__()
         self.stack = stack
+        self.read_all_button = QPushButton("Прочитать все")
+        self.back_button = QPushButton("Назад")
 
         self.setWindowTitle("Уведомления")
         self.setFixedSize(600, 400)
-        layout = QVBoxLayout(self)
+        self.layout = QVBoxLayout(self)
+        self.layout.setAlignment(Qt.AlignCenter)
 
-        list_widget = QListWidget()
+        self.list_widget = QListWidget()
+        self.layout.addWidget(self.list_widget)
 
+        self.create_buttons()
+        self.set_style_sheet()
+
+    def create_buttons(self):
+        hbox = QHBoxLayout()
+        hbox.addStretch()
+        self.read_all_button.clicked.connect(self.read_all_notifications)
+        self.read_all_button.setFixedSize(150, 40)
+        self.back_button.clicked.connect(lambda: self.stack.setCurrentWidget(main_page))
+        self.back_button.setFixedSize(70, 40)
+        hbox.addWidget(self.read_all_button)
+        hbox.addWidget(self.back_button)
+        hbox.addStretch()
+        self.layout.addLayout(hbox)
+
+    def read_all_notifications(self):
+        url = "http://localhost:8080/worker/readAllNotifications"
+        response = get_response_with_user_data(url, user["username"])
+        QMessageBox.information(self, "Прочитать все", response.text)
+
+    def set_style_sheet(self):
+        self.setStyleSheet("""
+                            QWidget {
+                                background-color: #F7FAFF;
+                            }
+                            QLabel {
+                                color: #1A3E6E;
+                            }
+                            QPushButton {
+                                background-color: #6BA6FF;
+                                color: white;
+                                border: none;
+                                border-radius: 10px;
+                                font-size: 16px;
+                            }
+                            QPushButton:hover {
+                                background-color: #5A94EA;
+                            }
+                            QPushButton:pressed {
+                                background-color: #4C82D1;
+                            }
+                            #notificationButton {
+                                color: #1A3E6E;
+                                background-color: #ffffff;
+                                border: 2px solid #C7D8F7;
+                                border-radius: 8px;
+                            }
+                            #notificationButton:hover {
+                                background-color: #fff000;
+                            }
+                            #notificationButton:pressed {
+                                background-color: #4C82D1;
+                            }
+                            #unredNotificationButton {
+                                color: #1A3E6E;
+                                background-color: #ffff00;
+                                border: 2px solid #C7D8F7;
+                                border-radius: 8px;
+                            }
+                            #unredNotificationButton:hover {
+                                background-color: #fff000;
+                            }
+                            #unredNotificationButton:pressed {
+                                background-color: #4C82D1;
+                            }
+                        """)
+
+    def update_ui(self):
         url = "http://localhost:8080/worker/getNotifications"
-        response = get_response_with_user_data(url, user_info["username"])
+        response = get_response_with_user_data(url, user["username"])
         if response.status_code != 200:
             QMessageBox.information(self, "Ошибка", response.text)
             self.stack.setCurrentWidget(log_in_page)
@@ -309,50 +417,251 @@ class NotificationsPage(QWidget):
         else:
             notifications = response.json()
 
+        self.list_widget.clear()
+
         for notification in notifications:
-            item = QListWidgetItem()
-            widget = QWidget()
-            vbox = QVBoxLayout()
-            vbox.setSpacing(2)
-            type_id = notification["typeId"]
-            match type_id:
-                case 1:
-                    text = "Важное уведомление"
-                case 2:
-                    text = "Ваш заказ взят в работу"
-                case 3:
-                    text = "Ваш заказ завершен"
-                case 4:
-                    text = "Вам оставили отзыв"
-                case 5:
-                    text = "Вы завершили заказ, оставьте отзыв о клиенте"
+            self.add_notification(notification)
 
-            vbox.addWidget(QPushButton(text))
+    def add_notification(self, notification):
+        item = QListWidgetItem()
+        widget = QWidget()
+        vbox = QVBoxLayout()
+        vbox.setSpacing(2)
+        type_id = notification["typeId"]
+        text = self.match_type_id(type_id)
 
-            widget.setLayout(vbox)
-            item.setSizeHint(widget.sizeHint())
-            list_widget.addItem(item)
-            list_widget.setItemWidget(item, widget)
+        notification_button = QPushButton(text)
+        if notification["isRead"]:
+            notification_button.setObjectName("notificationButton")
+        else:
+            notification_button.setObjectName("unredNotificationButton")
+        notification_button.clicked.connect(lambda: self.open_notification(notification, user["username"], "worker"))
+        vbox.addWidget(notification_button)
 
-        layout.addWidget(list_widget)
+        widget.setLayout(vbox)
+        item.setSizeHint(widget.sizeHint())
+        self.list_widget.addItem(item)
+        self.list_widget.setItemWidget(item, widget)
 
+    @staticmethod
+    def match_type_id(type_id):
+        match type_id:
+            case 1:
+                text = "Важное уведомление"
+            case 2:
+                text = "Ваш заказ взят в работу"
+            case 3:
+                text = "Ваш заказ завершен"
+            case 4:
+                text = "Вам оставили отзыв"
+            case 5:
+                text = "Вы завершили заказ, оставьте отзыв о клиенте"
+            case _:
+                text = "Error"
+        return text
+
+    @staticmethod
+    def open_notification(notification, username, app):
+        url = f"http://localhost:8080/{app}/readNotification"
+        with open("Data\\session.json", "r") as f:
+            session_token = json.load(f)["sessionToken"]
+        data = {
+            'username': username,
+            'sessionToken': session_token,
+            'notificationId': notification["_id"]["$oid"],
+        }
+        response = requests.post(url=url, json=data)
+        if response.status_code != 200:
+            popup = NotificationPopUp(response.text)
+        else:
+            popup = NotificationPopUp(notification["text"])
+        popup.exec()
+
+
+class NotificationPopUp(QDialog):
+    def __init__(self, notification_text):
+        super().__init__()
+        self.setWindowTitle("Уведомление")
+        self.setFixedSize(380, 260)
+
+        layout = QVBoxLayout()
+        layout.setAlignment(Qt.AlignCenter)
+
+        # Заголовок
+        title = QLabel("Уведомление")
+        title.setFont(QFont("Arial", 20))
+        title.setAlignment(Qt.AlignCenter)
+        layout.addWidget(title)
+
+        # Текст уведомления
+        message = QLabel(notification_text)
+        message.setWordWrap(True)
+        message.setFont(QFont("Arial", 14))
+        message.setAlignment(Qt.AlignCenter)
+        layout.addWidget(message)
+
+        # Кнопка закрыть
+        close_button = QPushButton("Закрыть")
+        close_button.setFixedHeight(40)
+        close_button.clicked.connect(self.close)
+        layout.addWidget(close_button)
+
+        self.setLayout(layout)
+
+        # Стиль
         self.setStyleSheet("""
-                    QWidget {
+                    QDialog {
                         background-color: #F7FAFF;
                     }
-                    QPushButton {
+                    QLabel {
                         color: #1A3E6E;
-                        background-color: #ffffff;
-                        border: 2px solid #C7D8F7;
-                        border-radius: 8px;
+                    }
+                    QPushButton {
+                        background-color: #6BA6FF;
+                        color: white;
+                        border: none;
+                        border-radius: 10px;
+                        font-size: 16px;
                     }
                     QPushButton:hover {
-                        background-color: #fff000;
+                        background-color: #5A94EA;
                     }
                     QPushButton:pressed {
                         background-color: #4C82D1;
                     }
                 """)
+
+class OrdersPage(QWidget):
+    def __init__(self):
+        super().__init__()
+
+        self.stack = stack
+        self.setWindowTitle("Заказы")
+        self.setFixedSize(600, 500)
+
+        self.create_layout()
+        self.create_filter_buttons()
+        self.create_orders_list()
+        self.create_back_button()
+        self.apply_styles()
+
+    # ----------------------------- UI -----------------------------
+
+    def create_layout(self):
+        self.layout = QVBoxLayout(self)
+        self.layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+
+    def create_filter_buttons(self):
+        self.filters_layout = QHBoxLayout()
+
+        self.new_button = QPushButton("Новые")
+        self.active_button = QPushButton("Активные")
+        self.done_button = QPushButton("Завершенные")
+
+        # Ничего не делают, как просил
+        self.filters_layout.addWidget(self.new_button)
+        self.filters_layout.addWidget(self.active_button)
+        self.filters_layout.addWidget(self.done_button)
+
+        self.layout.addLayout(self.filters_layout)
+
+    def create_orders_list(self):
+        self.orders_list = QListWidget()
+        self.layout.addWidget(self.orders_list)
+
+    def create_back_button(self):
+        self.back_button = QPushButton("Назад")
+        self.back_button.clicked.connect(lambda: self.stack.setCurrentWidget(main_page))
+        self.back_button.setFixedHeight(40)
+        self.layout.addWidget(self.back_button)   # пока не привязываем обработчик
+
+    def apply_styles(self):
+        self.setStyleSheet("""
+            QWidget {
+                background-color: #F7FAFF;
+            }
+            QPushButton {
+                background-color: #6BA6FF;
+                color: white;
+                border: none;
+                border-radius: 10px;
+                font-size: 16px;
+                padding: 8px 12px;
+            }
+            QPushButton:hover {
+                background-color: #5A94EA;
+            }
+            QPushButton:pressed {
+                background-color: #4C82D1;
+            }
+            QListWidget {
+                background-color: #ffffff;
+                border: 2px solid #C7D8F7;
+                border-radius: 8px;
+                padding: 5px;
+            }
+            #orderButton {
+                background-color: #ffffff;
+                color: #1A3E6E;
+                border: 2px solid #C7D8F7;
+                border-radius: 8px;
+                padding: 10px;
+                text-align: left;
+            }
+            #orderButton:hover {
+                background-color: #E8F1FF;
+            }
+        """)
+
+    # ----------------------------- UPDATE UI -----------------------------
+
+    def update_ui(self, orders):
+        """
+        orders — массив словарей
+        каждый словарь содержит order_text — текст заказа
+        """
+
+        self.orders_list.clear()
+
+        for order in orders:
+            text = (
+                f"ID заказа: {order["_id"]["$oid"]}\n"
+                f"Тип заказа: {order["type"]}\n"
+                f"Комментарий: {order["comment"]}\n\n"
+                f"Имя заказчика: {order["customerFirstName"]}\n"
+                f"Фамилия заказчика: {order["customerLastName"]}\n"
+                f"Номер телефона заказчика: {order["customerPhoneNum"]}"
+            )
+            self.add_order_item(f"Заказ {order["_id"]["$oid"]}")
+
+
+    # ----------------------------- ADD ONE ORDER -----------------------------
+
+    def add_order_item(self, order_text):
+        item = QListWidgetItem()
+        widget = QWidget()
+
+        vbox = QVBoxLayout()
+        vbox.setContentsMargins(0, 5, 0, 5)
+
+        button = QPushButton(order_text)
+        button.setObjectName("orderButton")
+        button.setFixedHeight(60)
+        # по просьбе — ничего не делает
+
+        vbox.addWidget(button)
+        widget.setLayout(vbox)
+
+        item.setSizeHint(widget.sizeHint())
+        self.orders_list.addItem(item)
+        self.orders_list.setItemWidget(item, widget)
+
+
+def check_user():
+    if user:
+        stack.setCurrentWidget(main_page)
+    else:
+        stack.setCurrentWidget(log_in_page)
 
 
 if __name__ == "__main__":
@@ -360,20 +669,19 @@ if __name__ == "__main__":
     stack = QStackedWidget()
     stack.setStyleSheet("background-color: #F7FAFF;")
 
-    log_in_page = LoginPage(stack)
-    registration_page = RegistrationPage(stack)
-    main_page = MainPage(stack)
-    notifications_page = NotificationsPage(stack)
+    log_in_page = LoginPage()
+    registration_page = RegistrationPage()
+    main_page = MainPage()
+    orders_page = OrdersPage()
+    notifications_page = NotificationsPage()
 
     stack.addWidget(log_in_page)
     stack.addWidget(registration_page)
     stack.addWidget(main_page)
+    stack.addWidget(orders_page)
     stack.addWidget(notifications_page)
 
-    if user_info:
-        stack.setCurrentWidget(main_page)
-    else:
-        stack.setCurrentWidget(log_in_page)
+    check_user()
 
     stack.resize(360, 420)
     stack.show()
