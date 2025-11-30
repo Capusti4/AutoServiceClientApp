@@ -9,6 +9,7 @@ from PySide6.QtGui import QFont
 from PySide6.QtCore import Qt
 import sys
 
+from Services.feedbacks import get_feedbacks
 from Services.responses import get_user_info, get_response_with_user_data
 from Services.sessions import check_session, delete_session
 
@@ -71,8 +72,8 @@ class LoginPage(QWidget):
         username = self.username_textbox.text().lower()
         password = self.password_textbox.text()
         url = "http://localhost:8080/worker/logIn"
-        json = {"username": username, "password": password}
-        response = requests.post(url, json=json)
+        data = {"username": username, "password": password}
+        response = requests.post(url, json=data)
         if response.status_code != 200:
             QMessageBox.information(self, "Вход", response.text)
         else:
@@ -222,14 +223,14 @@ class RegistrationPage(QWidget):
         lastname = self.lastname_textbox.text().lower()
         phone_number = self.phone_number_textbox.text()
         url = "http://localhost:8080/worker/register"
-        json = {
+        data = {
             "username": username,
             "password": password,
             "firstName": firstname,
             "lastName": lastname,
             "phoneNum": phone_number
         }
-        response = requests.post(url, json=json)
+        response = requests.post(url, json=data)
         self.check_response(response)
 
     def check_response(self, response):
@@ -276,6 +277,7 @@ class MainPage(QWidget):
         self.notifications_button.setText("Посмотреть уведомления")
         self.notifications_button.clicked.connect(self.open_notifications_page)
         self.reviews_button.setText("Открыть меню отзывов")
+        self.reviews_button.clicked.connect(self.open_feedbacks_page)
         self.logout_button.setText("Выйти из аккаунта")
         self.logout_button.clicked.connect(self.exit_from_account)
         for button in [self.orders_button, self.notifications_button, self.reviews_button, self.logout_button]:
@@ -283,10 +285,7 @@ class MainPage(QWidget):
             self.layout.addWidget(button)
 
     def open_orders_page(self):
-        url = "http://localhost:8080/worker/getCompletedOrders"
-        response = get_response_with_user_data(url, user["username"])
-        orders = response.json()["orders"]
-        orders_page.update_ui(orders)
+        orders_page.update_ui()
         self.stack.setCurrentWidget(orders_page)
 
     def set_style_sheet(self):
@@ -315,6 +314,10 @@ class MainPage(QWidget):
     def open_notifications_page(self):
         notifications_page.update_ui()
         self.stack.setCurrentWidget(notifications_page)
+
+    def open_feedbacks_page(self):
+        feedbacks_page.update_ui()
+        self.stack.setCurrentWidget(feedbacks_page)
 
     def exit_from_account(self):
         response = delete_session("worker")
@@ -460,9 +463,8 @@ class NotificationsPage(QWidget):
                 text = "Error"
         return text
 
-    @staticmethod
-    def open_notification(notification, username, app):
-        url = f"http://localhost:8080/{app}/readNotification"
+    def open_notification(self, notification, username, app_name):
+        url = f"http://localhost:8080/{app_name}/readNotification"
         with open("Data\\session.json", "r") as f:
             session_token = json.load(f)["sessionToken"]
         data = {
@@ -475,6 +477,7 @@ class NotificationsPage(QWidget):
             popup = NotificationPopUp(response.text)
         else:
             popup = NotificationPopUp(notification["text"])
+        self.update_ui()
         popup.exec()
 
 
@@ -531,6 +534,7 @@ class NotificationPopUp(QDialog):
                     }
                 """)
 
+
 class OrdersPage(QWidget):
     def __init__(self):
         super().__init__()
@@ -538,9 +542,11 @@ class OrdersPage(QWidget):
         self.stack = stack
         self.setWindowTitle("Заказы")
         self.setFixedSize(600, 500)
+        self.orders_type = 1
 
         self.create_layout()
         self.create_filter_buttons()
+        self.create_empty_label()
         self.create_orders_list()
         self.create_back_button()
         self.apply_styles()
@@ -554,16 +560,43 @@ class OrdersPage(QWidget):
     def create_filter_buttons(self):
         self.filters_layout = QHBoxLayout()
 
-        self.new_button = QPushButton("Новые")
-        self.active_button = QPushButton("Активные")
-        self.done_button = QPushButton("Завершенные")
+        self.open_new_orders_button = QPushButton("Новые")
+        self.open_new_orders_button.clicked.connect(self.open_new_orders)
+        self.open_active_orders_button = QPushButton("Активные")
+        self.open_active_orders_button.clicked.connect(self.open_active_orders)
+        self.open_completed_orders_button = QPushButton("Завершенные")
+        self.open_completed_orders_button.clicked.connect(self.open_completed_orders)
 
         # Ничего не делают, как просил
-        self.filters_layout.addWidget(self.new_button)
-        self.filters_layout.addWidget(self.active_button)
-        self.filters_layout.addWidget(self.done_button)
+        self.filters_layout.addWidget(self.open_new_orders_button)
+        self.filters_layout.addWidget(self.open_active_orders_button)
+        self.filters_layout.addWidget(self.open_completed_orders_button)
 
         self.layout.addLayout(self.filters_layout)
+
+    def create_empty_label(self):
+        self.empty_label = QLabel("Заказов нет")
+        self.empty_label.setAlignment(Qt.AlignCenter)
+        self.empty_label.setStyleSheet("color: #1A3E6E; font-size: 18px;")
+        self.empty_label.hide()
+        self.layout.addWidget(self.empty_label)
+
+    def open_new_orders(self):
+        self.orders_type = 1
+        self.update_ui()
+
+    def open_active_orders(self):
+        self.orders_type = 2
+        self.update_ui()
+
+    def open_completed_orders(self):
+        self.orders_type = 3
+        self.update_ui()
+
+    @staticmethod
+    def get_orders(url):
+        response = get_response_with_user_data(url, user["username"])
+        return response.json()
 
     def create_orders_list(self):
         self.orders_list = QListWidget()
@@ -573,7 +606,7 @@ class OrdersPage(QWidget):
         self.back_button = QPushButton("Назад")
         self.back_button.clicked.connect(lambda: self.stack.setCurrentWidget(main_page))
         self.back_button.setFixedHeight(40)
-        self.layout.addWidget(self.back_button)   # пока не привязываем обработчик
+        self.layout.addWidget(self.back_button)  # пока не привязываем обработчик
 
     def apply_styles(self):
         self.setStyleSheet("""
@@ -615,39 +648,50 @@ class OrdersPage(QWidget):
 
     # ----------------------------- UPDATE UI -----------------------------
 
-    def update_ui(self, orders):
+    def update_ui(self):
         """
         orders — массив словарей
         каждый словарь содержит order_text — текст заказа
         """
+        url = ""
+        match self.orders_type:
+            case 1:
+                url = "http://localhost:8080/worker/getNewOrders"
+            case 2:
+                url = "http://localhost:8080/worker/getActiveOrders"
+            case 3:
+                url = "http://localhost:8080/worker/getCompletedOrders"
+        response = get_response_with_user_data(url, user["username"])
+        orders = response.json()
 
         self.orders_list.clear()
 
+        if not orders:
+            self.empty_label.show()
+            return
+        self.empty_label.hide()
         for order in orders:
-            text = (
-                f"ID заказа: {order["_id"]["$oid"]}\n"
-                f"Тип заказа: {order["type"]}\n"
-                f"Комментарий: {order["comment"]}\n\n"
-                f"Имя заказчика: {order["customerFirstName"]}\n"
-                f"Фамилия заказчика: {order["customerLastName"]}\n"
-                f"Номер телефона заказчика: {order["customerPhoneNum"]}"
-            )
-            self.add_order_item(f"Заказ {order["_id"]["$oid"]}")
-
+            self.add_order_item(order)
 
     # ----------------------------- ADD ONE ORDER -----------------------------
 
-    def add_order_item(self, order_text):
+    def add_order_item(self, order):
         item = QListWidgetItem()
         widget = QWidget()
 
         vbox = QVBoxLayout()
         vbox.setContentsMargins(0, 5, 0, 5)
 
-        button = QPushButton(order_text)
+        button = QPushButton(f"Заказ {order["_id"]["$oid"]}")
         button.setObjectName("orderButton")
         button.setFixedHeight(60)
-        # по просьбе — ничего не делает
+        match self.orders_type:
+            case 1:
+                button.clicked.connect(lambda: self.open_new_order(order))
+            case 2:
+                button.clicked.connect(lambda: self.open_active_order(order))
+            case 3:
+                button.clicked.connect(lambda: self.open_completed_order(order))
 
         vbox.addWidget(button)
         widget.setLayout(vbox)
@@ -655,6 +699,356 @@ class OrdersPage(QWidget):
         item.setSizeHint(widget.sizeHint())
         self.orders_list.addItem(item)
         self.orders_list.setItemWidget(item, widget)
+
+    @staticmethod
+    def open_new_order(order):
+        popup = NewOrderPopUp(order)
+        popup.exec()
+
+    @staticmethod
+    def open_active_order(order):
+        popup = ActiveOrderPopUp(order)
+        popup.exec()
+
+    @staticmethod
+    def open_completed_order(order):
+        popup = CompletedOrderPopUp(order)
+        popup.exec()
+
+
+class NewOrderPopUp(QDialog):
+    def __init__(self, order):
+        super().__init__()
+        self.setWindowTitle("Заказы")
+        self.setFixedSize(500, 260)
+
+        layout = QVBoxLayout()
+        layout.setAlignment(Qt.AlignCenter)
+
+        # Заголовок
+        title = QLabel("Заказы")
+        title.setFont(QFont("Arial", 20))
+        title.setAlignment(Qt.AlignCenter)
+        layout.addWidget(title)
+
+        # Текст уведомления
+
+        text = (
+            f"ID заказа: {order["_id"]["$oid"]}\n"
+            f"Тип заказа: {order["type"]}\n"
+            f"Комментарий: {order["comment"]}\n\n"
+            f"Имя заказчика: {order["customerFirstName"]}\n"
+            f"Фамилия заказчика: {order["customerLastName"]}\n"
+            f"Номер телефона заказчика: {order["customerPhoneNum"]}"
+        )
+        message = QLabel(text)
+        message.setWordWrap(True)
+        message.setFont(QFont("Arial", 14))
+        message.setAlignment(Qt.AlignCenter)
+        layout.addWidget(message)
+
+        take_order_button = QPushButton("Взять заказ")
+        take_order_button.setFixedHeight(40)
+        take_order_button.clicked.connect(lambda: self.take_order(order))
+        layout.addWidget(take_order_button)
+
+        # Кнопка закрыть
+        close_button = QPushButton("Закрыть")
+        close_button.setFixedHeight(40)
+        close_button.clicked.connect(self.close)
+        layout.addWidget(close_button)
+
+        self.setLayout(layout)
+
+        # Стиль
+        self.setStyleSheet("""
+                    QDialog {
+                        background-color: #F7FAFF;
+                    }
+                    QLabel {
+                        color: #1A3E6E;
+                    }
+                    QPushButton {
+                        background-color: #6BA6FF;
+                        color: white;
+                        border: none;
+                        border-radius: 10px;
+                        font-size: 16px;
+                    }
+                    QPushButton:hover {
+                        background-color: #5A94EA;
+                    }
+                    QPushButton:pressed {
+                        background-color: #4C82D1;
+                    }
+                """)
+
+    def take_order(self, order):
+        order_id = order["_id"]["$oid"]
+        with open("Data\\session.json", "r") as f:
+            session_json = json.load(f)
+        session_json["orderId"] = order_id
+        response = requests.post("http://localhost:8080/worker/startOrder", json=session_json)
+        if response.status_code == 200:
+            QMessageBox.information(self, "Заказ", f"Заказ {order_id} успешно взят")
+        else:
+            QMessageBox.information(self, "Заказ", response.text)
+        orders_page.update_ui()
+
+
+class ActiveOrderPopUp(QDialog):
+    def __init__(self, order):
+        super().__init__()
+        self.setWindowTitle("Заказы")
+        self.setFixedSize(500, 260)
+
+        layout = QVBoxLayout()
+        layout.setAlignment(Qt.AlignCenter)
+
+        # Заголовок
+        title = QLabel("Заказы")
+        title.setFont(QFont("Arial", 20))
+        title.setAlignment(Qt.AlignCenter)
+        layout.addWidget(title)
+
+        # Текст уведомления
+        text = (
+            f"ID заказа: {order["_id"]["$oid"]}\n"
+            f"Тип заказа: {order["type"]}\n"
+            f"Комментарий: {order["comment"]}\n\n"
+            f"Имя заказчика: {order["customerFirstName"]}\n"
+            f"Фамилия заказчика: {order["customerLastName"]}\n"
+            f"Номер телефона заказчика: {order["customerPhoneNum"]}"
+        )
+        message = QLabel(text)
+        message.setWordWrap(True)
+        message.setFont(QFont("Arial", 14))
+        message.setAlignment(Qt.AlignCenter)
+        layout.addWidget(message)
+
+        complete_order_button = QPushButton("Завершить заказ")
+        complete_order_button.setFixedHeight(40)
+        complete_order_button.clicked.connect(lambda: self.complete_order(order))
+        layout.addWidget(complete_order_button)
+
+        # Кнопка закрыть
+        close_button = QPushButton("Закрыть")
+        close_button.setFixedHeight(40)
+        close_button.clicked.connect(self.close)
+        layout.addWidget(close_button)
+
+        self.setLayout(layout)
+
+        # Стиль
+        self.setStyleSheet("""
+                    QDialog {
+                        background-color: #F7FAFF;
+                    }
+                    QLabel {
+                        color: #1A3E6E;
+                    }
+                    QPushButton {
+                        background-color: #6BA6FF;
+                        color: white;
+                        border: none;
+                        border-radius: 10px;
+                        font-size: 16px;
+                    }
+                    QPushButton:hover {
+                        background-color: #5A94EA;
+                    }
+                    QPushButton:pressed {
+                        background-color: #4C82D1;
+                    }
+                """)
+
+    def complete_order(self, order):
+        with open("Data\\session.json", "r") as f:
+            session_token = json.load(f)["sessionToken"]
+        data = {
+            'username': user["username"],
+            'sessionToken': session_token,
+            'orderId': order["_id"]["$oid"],
+        }
+        response = requests.post(url="http://localhost:8080/worker/completeOrder", json=data)
+        QMessageBox.information(self, "Заказ", response.text)
+        orders_page.update_ui()
+
+
+class CompletedOrderPopUp(QDialog):
+    def __init__(self, order):
+        super().__init__()
+        self.setWindowTitle("Заказы")
+        self.setFixedSize(500, 260)
+
+        layout = QVBoxLayout()
+        layout.setAlignment(Qt.AlignCenter)
+
+        # Заголовок
+        title = QLabel("Заказы")
+        title.setFont(QFont("Arial", 20))
+        title.setAlignment(Qt.AlignCenter)
+        layout.addWidget(title)
+
+        # Текст уведомления
+        text = (
+            f"ID заказа: {order["_id"]["$oid"]}\n"
+            f"Тип заказа: {order["type"]}\n"
+            f"Комментарий: {order["comment"]}\n\n"
+            f"Имя заказчика: {order["customerFirstName"]}\n"
+            f"Фамилия заказчика: {order["customerLastName"]}\n"
+            f"Номер телефона заказчика: {order["customerPhoneNum"]}"
+        )
+        message = QLabel(text)
+        message.setWordWrap(True)
+        message.setFont(QFont("Arial", 14))
+        message.setAlignment(Qt.AlignCenter)
+        layout.addWidget(message)
+
+        # Кнопка закрыть
+        close_button = QPushButton("Закрыть")
+        close_button.setFixedHeight(40)
+        close_button.clicked.connect(self.close)
+        layout.addWidget(close_button)
+
+        self.setLayout(layout)
+
+        # Стиль
+        self.setStyleSheet("""
+                    QDialog {
+                        background-color: #F7FAFF;
+                    }
+                    QLabel {
+                        color: #1A3E6E;
+                    }
+                    QPushButton {
+                        background-color: #6BA6FF;
+                        color: white;
+                        border: none;
+                        border-radius: 10px;
+                        font-size: 16px;
+                    }
+                    QPushButton:hover {
+                        background-color: #5A94EA;
+                    }
+                    QPushButton:pressed {
+                        background-color: #4C82D1;
+                    }
+                """)
+
+
+class FeedbacksPage(QWidget):
+    def __init__(self):
+        super().__init__()
+
+        self.stack = stack
+        self.setWindowTitle("Отзывы")
+        self.setFixedSize(600, 500)
+
+        self.create_layout()
+        self.create_empty_label()
+        self.create_feedbacks_list()
+        self.create_back_button()
+        self.apply_styles()
+
+    # ----------------------------- UI -----------------------------
+
+    def create_layout(self):
+        self.layout = QVBoxLayout(self)
+        self.layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+
+    def create_empty_label(self):
+        self.empty_label = QLabel("Отзывов нет")
+        self.empty_label.setAlignment(Qt.AlignCenter)
+        self.empty_label.setStyleSheet("color: #1A3E6E; font-size: 18px;")
+        self.empty_label.hide()
+        self.layout.addWidget(self.empty_label)
+
+    def create_feedbacks_list(self):
+        self.feedbacks_list = QListWidget()
+        self.layout.addWidget(self.feedbacks_list)
+
+    def create_back_button(self):
+        self.back_button = QPushButton("Назад")
+        self.back_button.clicked.connect(lambda: self.stack.setCurrentWidget(main_page))
+        self.back_button.setFixedHeight(40)
+        self.layout.addWidget(self.back_button)  # пока не привязываем обработчик
+
+    def apply_styles(self):
+        self.setStyleSheet("""
+            QWidget {
+                background-color: #F7FAFF;
+            }
+            QPushButton {
+                background-color: #6BA6FF;
+                color: white;
+                border: none;
+                border-radius: 10px;
+                font-size: 16px;
+                padding: 8px 12px;
+            }
+            QPushButton:hover {
+                background-color: #5A94EA;
+            }
+            QPushButton:pressed {
+                background-color: #4C82D1;
+            }
+            QListWidget {
+                background-color: #ffffff;
+                border: 2px solid #C7D8F7;
+                border-radius: 8px;
+                padding: 5px;
+            }
+            #feedbackButton {
+                background-color: #ffffff;
+                color: #1A3E6E;
+                border: 2px solid #C7D8F7;
+                border-radius: 8px;
+                padding: 10px;
+                text-align: left;
+            }
+            #feedbackButton:hover {
+                background-color: #E8F1FF;
+            }
+        """)
+
+    # ----------------------------- UPDATE UI -----------------------------
+
+    def update_ui(self):
+        url = "http://localhost:8080/worker/getFeedbacksForUser"
+        feedbacks = get_feedbacks(url, user["username"])
+
+        self.feedbacks_list.clear()
+
+        if not feedbacks:
+            self.empty_label.show()
+            return
+        self.empty_label.hide()
+        for feedback in feedbacks:
+            self.add_feedback_item(feedback)
+
+    # ----------------------------- ADD ONE ORDER -----------------------------
+
+    def add_feedback_item(self, feedback):
+        item = QListWidgetItem()
+        widget = QWidget()
+
+        vbox = QVBoxLayout()
+        vbox.setContentsMargins(0, 5, 0, 5)
+
+        button = QPushButton(
+            f"Оценка: {feedback["rating"]}\n"
+            f"Комментарий: {feedback["comment"]}"
+        )
+        button.setObjectName("feedbackButton")
+        button.setFixedHeight(80)
+
+        vbox.addWidget(button)
+        widget.setLayout(vbox)
+
+        item.setSizeHint(widget.sizeHint())
+        self.feedbacks_list.addItem(item)
+        self.feedbacks_list.setItemWidget(item, widget)
 
 
 def check_user():
@@ -674,12 +1068,14 @@ if __name__ == "__main__":
     main_page = MainPage()
     orders_page = OrdersPage()
     notifications_page = NotificationsPage()
+    feedbacks_page = FeedbacksPage()
 
     stack.addWidget(log_in_page)
     stack.addWidget(registration_page)
     stack.addWidget(main_page)
     stack.addWidget(orders_page)
     stack.addWidget(notifications_page)
+    stack.addWidget(feedbacks_page)
 
     check_user()
 
