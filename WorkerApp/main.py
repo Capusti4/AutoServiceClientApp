@@ -476,13 +476,13 @@ class NotificationsPage(QWidget):
         if response.status_code != 200:
             popup = NotificationPopUp(response.text)
         else:
-            popup = NotificationPopUp(notification["text"])
+            popup = NotificationPopUp(notification)
         self.update_ui()
         popup.exec()
 
 
 class NotificationPopUp(QDialog):
-    def __init__(self, notification_text):
+    def __init__(self, notification):
         super().__init__()
         self.setWindowTitle("Уведомление")
         self.setFixedSize(380, 260)
@@ -497,11 +497,17 @@ class NotificationPopUp(QDialog):
         layout.addWidget(title)
 
         # Текст уведомления
-        message = QLabel(notification_text)
+        message = QLabel(notification["text"])
         message.setWordWrap(True)
         message.setFont(QFont("Arial", 14))
         message.setAlignment(Qt.AlignCenter)
         layout.addWidget(message)
+
+        # Кнопка закрыть
+        close_button = QPushButton("Удалить")
+        close_button.setFixedHeight(40)
+        close_button.clicked.connect(lambda: self.delete_notification(notification))
+        layout.addWidget(close_button)
 
         # Кнопка закрыть
         close_button = QPushButton("Закрыть")
@@ -533,6 +539,20 @@ class NotificationPopUp(QDialog):
                         background-color: #4C82D1;
                     }
                 """)
+
+    def delete_notification(self, notification):
+        notification_id = notification["_id"]["$oid"]
+        url = "http://localhost:8080/worker/deleteNotification"
+        with open("Data\\session.json", "r") as f:
+            session_token = json.load(f)["sessionToken"]
+        data = {
+            'username': user["username"],
+            'sessionToken': session_token,
+            'notificationId': notification_id,
+        }
+        response = requests.post(url=url, json=data)
+        QMessageBox.information(self, "Уведомление", response.text)
+        NotificationsPage.update_ui(notifications_page)
 
 
 class OrdersPage(QWidget):
@@ -654,12 +674,50 @@ class OrdersPage(QWidget):
         каждый словарь содержит order_text — текст заказа
         """
         url = ""
+        default_style = """
+            QPushButton {
+                background-color: #6BA6FF;
+                color: white;
+                border: none;
+                border-radius: 10px;
+                font-size: 16px;
+                padding: 8px 12px;
+            }
+            QPushButton:hover {
+                background-color: #5A94EA;
+            }
+            QPushButton:pressed {
+                background-color: #4C82D1;
+            }
+        """
+        active_style = """
+            QPushButton {
+                background-color: #C0D9FF;
+                color: black;
+                border: none;
+                border-radius: 10px;
+                font-size: 16px;
+                padding: 8px 12px;
+            }
+            QPushButton:hover {
+                background-color: #5A94EA;
+            }
+            QPushButton:pressed {
+                background-color: #4C82D1;
+            }
+        """
+        self.open_new_orders_button.setStyleSheet(default_style)
+        self.open_active_orders_button.setStyleSheet(default_style)
+        self.open_completed_orders_button.setStyleSheet(default_style)
         match self.orders_type:
             case 1:
+                self.open_new_orders_button.setStyleSheet(active_style)
                 url = "http://localhost:8080/worker/getNewOrders"
             case 2:
+                self.open_active_orders_button.setStyleSheet(active_style)
                 url = "http://localhost:8080/worker/getActiveOrders"
             case 3:
+                self.open_completed_orders_button.setStyleSheet(active_style)
                 url = "http://localhost:8080/worker/getCompletedOrders"
         response = get_response_with_user_data(url, user["username"])
         orders = response.json()
