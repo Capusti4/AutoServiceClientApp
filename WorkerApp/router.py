@@ -21,6 +21,7 @@ class Router:
         self.orders_page = OrdersPage(self)
         self.feedbacks_page = FeedbacksPage(self)
         self.notifications_page = NotificationsPage(self)
+        self.add_widgets()
 
     def add_widgets(self):
         self.stack.addWidget(self.registration_page)

@@ -58,7 +58,7 @@ def show_feedbacks(username, url):
 def get_feedbacks(url, username):
     response = get_response_with_user_data(url, username)
     if response.status_code == 200:
-        return response.json()["feedbacks"]
+        return response.json()
     else:
         print(response.text)
         return None
