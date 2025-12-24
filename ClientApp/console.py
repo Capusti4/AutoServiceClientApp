@@ -1,7 +1,7 @@
 import json
 
 import requests
-from Services import requests_service
+from Services import requests_service, notifications_service
 
 
 class Order:
@@ -116,7 +116,7 @@ class App:
                 print("Уведомлений пока нет")
                 return self.main_menu()
 
-            self.print_notifications(notifications)
+            notifications_service.print_notifications(notifications)
             choice = int(input("Введите номер уведомления: ")) - 1
             if choice != -1:
                 notification = notifications[choice]
@@ -153,28 +153,6 @@ class App:
 
         else:
             print(response.json()["error"])
-
-    @staticmethod
-    def print_notifications(notifications):
-        print("---")
-        for i, notification in enumerate(notifications):
-            type_id = notification["typeId"]
-            text = ""
-            match type_id:
-                case 1:
-                    text = f"{i + 1}. Важное уведомление"
-                case 2:
-                    text = f"{i + 1}. Ваш заказ взят в работу"
-                case 3:
-                    text = f"{i + 1}. Ваш заказ завершен"
-                case 4:
-                    text = f"{i + 1}. Вам оставили отзыв"
-                case 5:
-                    text = f"{i + 1}. Вы завершили заказ, оставьте отзыв о клиенте"
-            if not notification["isRead"]:
-                text += " !"
-            print(text)
-            print("---")
 
     def register(self):
         username = input("Юзернейм: ")
